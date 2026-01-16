@@ -11,9 +11,6 @@ const Vehiculos: React.FC = () => {
           </h2>
           <p className="text-white/50">Control de flota, pases de salida y mantenimiento.</p>
         </div>
-        <button className="glass-button bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20">
-          <Plus size={20} /> Generar Pase de Salida
-        </button>
       </div>
 
       <div className="flex items-center justify-center py-20 border-2 border-dashed border-white/5 rounded-3xl">
