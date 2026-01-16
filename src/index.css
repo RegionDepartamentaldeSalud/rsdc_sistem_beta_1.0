@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #05070a;
+  --color-primary: #00f2ff;
+  --color-primary-dark: #00a3ad;
+  --color-secondary: #7000ff;
+  --color-secondary-dark: #4a00aa;
+  --color-glass: rgba(255, 255, 255, 0.03);
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+  
+  --shadow-neon-cyan: 0 0 15px rgba(0, 242, 255, 0.3);
+  --shadow-neon-purple: 0 0 15px rgba(112, 0, 255, 0.3);
+  
+  --background-image-futuristic-gradient: linear-gradient(135deg, #05070a 0%, #0a0f1a 100%);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-white font-sans antialiased selection:bg-primary/30;
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl;
+  }
+  
+  .glass-button {
+    @apply px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl 
+           hover:bg-white/10 transition-all duration-300 active:scale-95
+           flex items-center gap-2;
+  }
+
+  .neon-border {
+    @apply border border-primary/30 shadow-[0_0_15px_rgba(0,242,255,0.1)];
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300
+           hover:bg-white/5 text-white/70 hover:text-white;
+  }
+
+  .sidebar-link.active {
+    @apply bg-primary/10 text-primary border-r-2 border-primary rounded-r-none;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+}
+
+/* Futuristic background animation */
+.bg-grid {
+  background-image: linear-gradient(rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}

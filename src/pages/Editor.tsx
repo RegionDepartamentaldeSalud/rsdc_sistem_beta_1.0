@@ -1,0 +1,338 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
+import { motion } from 'framer-motion';
+import { 
+  ChevronLeft, Save, Loader2, Calendar, 
+  Type, FileText, Download, Printer, Share2
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+// Custom toolbar component
+const CustomToolbar = () => (
+  <div id="toolbar" className="flex flex-wrap items-center gap-1 p-2 bg-[#1a1f2e] border-b border-white/10 sticky top-0 z-10">
+    <select className="ql-font bg-white/5 border-none text-white text-xs rounded px-2 py-1 outline-none">
+      <option value="arial" selected>Arial</option>
+      <option value="serif">Serif</option>
+      <option value="monospace">Monospace</option>
+    </select>
+    <select className="ql-size bg-white/5 border-none text-white text-xs rounded px-2 py-1 outline-none">
+      <option value="small">10</option>
+      <option value="normal" selected>12</option>
+      <option value="large">14</option>
+      <option value="huge">18</option>
+    </select>
+    <div className="w-px h-4 bg-white/10 mx-1" />
+    <button className="ql-bold p-1 hover:bg-white/5 rounded text-white" />
+    <button className="ql-italic p-1 hover:bg-white/5 rounded text-white" />
+    <button className="ql-underline p-1 hover:bg-white/5 rounded text-white" />
+    <button className="ql-strike p-1 hover:bg-white/5 rounded text-white" />
+    <div className="w-px h-4 bg-white/10 mx-1" />
+    <button className="ql-list p-1 hover:bg-white/5 rounded text-white" value="ordered" />
+    <button className="ql-list p-1 hover:bg-white/5 rounded text-white" value="bullet" />
+    <div className="w-px h-4 bg-white/10 mx-1" />
+    <select className="ql-align bg-white/5 border-none text-white text-xs rounded px-2 py-1 outline-none">
+      <option value=""></option>
+      <option value="center"></option>
+      <option value="right"></option>
+      <option value="justify"></option>
+    </select>
+    <div className="w-px h-4 bg-white/10 mx-1" />
+    <button className="ql-clean p-1 hover:bg-white/5 rounded text-white" />
+  </div>
+);
+
+const Editor: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [content, setContent] = useState('');
+  const [oficio, setOficio] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [customDate, setCustomDate] = useState('');
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchOficio = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('rsdc_oficios')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      setOficio(data);
+      setContent(data.contenido_editor || '');
+      setCustomDate(data.fecha_creacion.split('T')[0]);
+    } catch (err) {
+      console.error('Error fetching oficio:', err);
+      navigate('/oficios');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, navigate]);
+
+  useEffect(() => {
+    fetchOficio();
+  }, [fetchOficio]);
+
+  const saveContent = useCallback(async (newContent: string) => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('rsdc_oficios')
+        .update({ 
+          contenido_editor: newContent,
+          fecha_creacion: customDate
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error auto-saving:', err);
+    } finally {
+      setSaving(false);
+    }
+  }, [id, customDate]);
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveContent(value);
+    }, 2000); // Auto-save after 2 seconds of inactivity
+  };
+
+  const handleDateChange = (newDate: string) => {
+    setCustomDate(newDate);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveContent(content);
+    }, 1000);
+  };
+
+  const formatDateString = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    return `San Pedro Sula ${date.getDate() + 1} de ${months[date.getMonth()]} del ${date.getFullYear()}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-64px)] flex flex-col items-center justify-center gap-4 bg-[#05070a]">
+        <Loader2 className="text-primary animate-spin" size={48} />
+        <p className="text-white/40 font-bold tracking-widest uppercase animate-pulse">Cargando Editor...</p>
+      </div>
+    );
+  }
+
+  const modules = {
+    toolbar: {
+      container: "#toolbar",
+    }
+  };
+
+  const formats = [
+    'font', 'size', 'bold', 'italic', 'underline', 'strike',
+    'list', 'bullet', 'align', 'clean'
+  ];
+
+  return (
+    <div className="h-[calc(100vh-64px)] flex flex-col bg-[#05070a] overflow-hidden">
+      {/* Editor Header / Sub-nav */}
+      <div className="h-14 bg-[#0a0f1a] border-b border-white/5 flex items-center justify-between px-6 shrink-0">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/oficios')}
+            className="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/60 hover:text-white"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex flex-col">
+            <h3 className="font-bold text-sm leading-tight">Editor de Oficios</h3>
+            <p className="text-[10px] text-white/30 uppercase tracking-widest">
+              Oficio No. {oficio?.numero_oficio}/ADMON/RSDC No.5
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-white/30 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full">
+            {saving ? (
+              <><Loader2 size={12} className="animate-spin" /> Guardando...</>
+            ) : (
+              <><Save size={12} /> Autoguardado Activo</>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="p-2 hover:bg-white/5 rounded-lg text-white/60 hover:text-white transition-colors" title="Descargar">
+              <Download size={18} />
+            </button>
+            <button className="p-2 hover:bg-white/5 rounded-lg text-white/60 hover:text-white transition-colors" title="Imprimir">
+              <Printer size={18} />
+            </button>
+            <button className="p-2 hover:bg-white/5 rounded-lg text-white/60 hover:text-white transition-colors" title="Compartir">
+              <Share2 size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Side: Word-like Editor */}
+        <div className="flex-1 flex flex-col bg-[#0d1117] overflow-hidden border-r border-white/5">
+          <CustomToolbar />
+          
+          <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center bg-[#161b22] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+            {/* The "Page" */}
+            <div className="w-[816px] min-h-[1056px] bg-white shadow-2xl p-[80px] text-black font-['Arial'] relative mb-12">
+              {/* Membrete Background */}
+              <div 
+                className="absolute inset-0 z-0 pointer-events-none opacity-50"
+                style={{
+                  backgroundImage: 'url(/membrete1.png)',
+                  backgroundSize: '100% 100%',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat'
+                }}
+              />
+              
+              {/* Content Wrapper to sit above background */}
+              <div className="relative z-10">
+                {/* Oficio Header */}
+                <div className="flex justify-between mb-12 text-sm font-bold pb-4">
+                  <span>Oficio No. {oficio?.numero_oficio}/ADMON/RSDC No.5</span>
+                  <span>{formatDateString(customDate)}</span>
+                </div>
+
+                <ReactQuill
+                  theme="snow"
+                  value={content}
+                  onChange={handleContentChange}
+                  modules={modules}
+                  formats={formats}
+                  placeholder="Empiece a escribir su oficio aquí..."
+                  className="quill-word-editor"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Settings / Info */}
+        <div className="w-80 bg-[#0a0f1a] flex flex-col p-6 space-y-8 shrink-0 overflow-y-auto">
+          <div className="space-y-4">
+            <h4 className="text-xs font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+              <Calendar size={14} /> Ajustes del Documento
+            </h4>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Fecha del Oficio</label>
+                <input 
+                  type="date" 
+                  value={customDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all [color-scheme:dark] text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Número Correlativo</label>
+                <div className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white/40 text-sm font-mono">
+                  {oficio?.numero_oficio}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Año</label>
+                <div className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white/40 text-sm font-mono">
+                  {oficio?.anio}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-xs font-bold text-secondary uppercase tracking-[0.2em] flex items-center gap-2">
+              <Type size={14} /> Información
+            </h4>
+            <div className="glass-card !bg-white/5 !p-4 space-y-3">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="p-2 bg-secondary/20 rounded-lg text-secondary">
+                  <FileText size={16} />
+                </div>
+                <div>
+                  <p className="font-bold text-white leading-none">Formato A4</p>
+                  <p className="text-[10px] text-white/30 uppercase tracking-tighter mt-1">210mm x 297mm</p>
+                </div>
+              </div>
+              <p className="text-xs text-white/50 leading-relaxed italic">
+                "Este documento cumple con los estándares institucionales de la Región Sanitaria."
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-auto pt-6 border-t border-white/5">
+            <button 
+              onClick={() => navigate('/oficios')}
+              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-bold shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest text-[10px]"
+            >
+              Finalizar Edición
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .quill-word-editor .ql-container.ql-snow {
+          border: none !important;
+          font-family: 'Arial', sans-serif !important;
+          font-size: 12pt !important;
+        }
+        .quill-word-editor .ql-editor {
+          padding: 0 !important;
+          line-height: 1.5 !important;
+          min-height: 800px !important;
+        }
+        .quill-word-editor .ql-editor p {
+          margin-bottom: 1rem !important;
+        }
+        #toolbar {
+          border: none !important;
+          border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+        }
+        .ql-snow .ql-stroke {
+          stroke: rgba(255,255,255,0.6) !important;
+        }
+        .ql-snow .ql-fill {
+          fill: rgba(255,255,255,0.6) !important;
+        }
+        .ql-snow .ql-picker {
+          color: rgba(255,255,255,0.6) !important;
+        }
+        .ql-snow.ql-toolbar button:hover .ql-stroke,
+        .ql-snow .ql-toolbar button:hover .ql-stroke {
+          stroke: #00f2ff !important;
+        }
+        .ql-snow.ql-toolbar button:hover .ql-fill,
+        .ql-snow .ql-toolbar button:hover .ql-fill {
+          fill: #00f2ff !important;
+        }
+        .ql-snow.ql-toolbar button.ql-active .ql-stroke {
+          stroke: #00f2ff !important;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default Editor;
