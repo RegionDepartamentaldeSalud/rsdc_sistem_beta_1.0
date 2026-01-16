@@ -2,11 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { motion } from 'framer-motion';
-import { 
-  ChevronLeft, Save, Loader2, Calendar, 
-  Type, FileText, Download, Printer, Share2
-} from 'lucide-react';
+import { ChevronLeft, Save, Loader2, Calendar, Type, FileText, Download, Printer, Share2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 // Custom toolbar component

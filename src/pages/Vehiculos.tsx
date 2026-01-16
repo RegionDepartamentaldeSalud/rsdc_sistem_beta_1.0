@@ -1,6 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Car, Plus } from 'lucide-react';
+import { Car } from 'lucide-react';
 
 const Vehiculos: React.FC = () => {
   return (
