@@ -40,6 +40,7 @@ const Direccion: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<'4:3' | '16:9' | '1:1'>('4:3');
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -150,7 +151,13 @@ const Direccion: React.FC = () => {
   const startCamera = async () => {
     try {
       setShowCamera(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          aspectRatio: aspectRatio === '4:3' ? 4/3 : aspectRatio === '16:9' ? 16/9 : 1
+        }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
@@ -160,6 +167,12 @@ const Direccion: React.FC = () => {
       setShowCamera(false);
     }
   };
+
+  useEffect(() => {
+    if (showCamera) {
+      startCamera();
+    }
+  }, [aspectRatio]);
 
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
@@ -309,7 +322,7 @@ const Direccion: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -365,9 +378,9 @@ const Direccion: React.FC = () => {
                 <motion.div 
                   key={doc.id}
                   whileHover={{ x: 5 }}
-                  className="glass-card p-5 flex items-center justify-between group relative"
+                  className="glass-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group relative"
                 >
-                  <div className="flex items-center gap-4 flex-1">
+                  <div className="flex items-center gap-4 flex-1 w-full">
                     <div className="p-3 bg-white/5 rounded-xl group-hover:bg-white/10 transition-colors hidden sm:block">
                       <ClipboardList className="text-white/40" />
                     </div>
@@ -410,13 +423,13 @@ const Direccion: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="relative">
+                  <div className="relative w-full sm:w-auto">
                     <button 
                       onClick={() => setStatusPanelId(statusPanelId === doc.id ? null : doc.id)}
-                      className={`flex items-center gap-2 px-4 py-2 ${info?.bg} ${info?.border} border rounded-xl transition-all hover:scale-105 active:scale-95`}
+                      className={`w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-4 py-3 sm:py-2 ${info?.bg} ${info?.border} border rounded-xl transition-all hover:scale-105 active:scale-95`}
                     >
                       {info?.icon}
-                      <span className={`text-sm font-bold ${info?.color} hidden xs:block`}>{info?.label}</span>
+                      <span className={`text-sm font-bold ${info?.color}`}>{info?.label}</span>
                     </button>
 
                     {/* Quick Status Change Panel */}
@@ -434,7 +447,7 @@ const Direccion: React.FC = () => {
                             initial={{ opacity: 0, scale: 0.9, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                            className="absolute right-0 bottom-full mb-2 w-56 glass-card !p-2 z-[101] shadow-2xl border border-white/10"
+                            className="absolute right-0 left-0 sm:left-auto bottom-full mb-2 w-full sm:w-56 glass-card !p-2 z-[101] shadow-2xl border border-white/10"
                           >
                             <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] px-3 py-2">Cambiar Estado</p>
                             <div className="space-y-1">
@@ -649,21 +662,48 @@ const Direccion: React.FC = () => {
                       <label className="text-xs font-bold text-white/30 uppercase tracking-widest">Archivo Adjunto (Opcional)</label>
                       
                       {showCamera ? (
-                        <div className="relative rounded-xl overflow-hidden bg-black aspect-video mb-2">
-                          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                          <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
-                            <button
-                              type="button"
-                              onClick={takePhoto}
-                              className="w-12 h-12 rounded-full bg-white border-4 border-white/20 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-                            />
-                            <button
-                              type="button"
-                              onClick={stopCamera}
-                              className="w-12 h-12 rounded-full bg-red-500/80 text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-                            >
-                              <X size={24} />
-                            </button>
+                        <div className="relative rounded-xl overflow-hidden bg-black mb-2 flex flex-col items-center">
+                          <div 
+                            className="relative overflow-hidden bg-black w-full"
+                            style={{ aspectRatio: aspectRatio.replace(':', '/') }}
+                          >
+                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                          </div>
+                          
+                          <div className="w-full bg-black/40 p-4 flex flex-col gap-4">
+                            {/* Aspect Ratio Controls */}
+                            <div className="flex justify-center gap-2">
+                              {(['4:3', '16:9', '1:1'] as const).map((ratio) => (
+                                <button
+                                  key={ratio}
+                                  type="button"
+                                  onClick={() => setAspectRatio(ratio)}
+                                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                    aspectRatio === ratio 
+                                      ? 'bg-white text-black' 
+                                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                                  }`}
+                                >
+                                  {ratio}
+                                </button>
+                              ))}
+                            </div>
+
+                            <div className="flex justify-center gap-8 items-center">
+                              <button
+                                type="button"
+                                onClick={stopCamera}
+                                className="w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+                              >
+                                <X size={20} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={takePhoto}
+                                className="w-16 h-16 rounded-full bg-white border-4 border-white/20 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                              />
+                              <div className="w-10" /> {/* Spacer for centering */}
+                            </div>
                           </div>
                         </div>
                       ) : capturedImage ? (
@@ -768,39 +808,29 @@ const Direccion: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex flex-col"
+            className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex flex-col"
             onClick={() => setViewingAttachment(null)}
           >
-            {/* Header */}
-            <div 
-              className="absolute top-0 left-0 right-0 z-[310] flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button 
-                onClick={() => setViewingAttachment(null)}
-                className="flex items-center gap-2 text-white hover:text-primary transition-colors px-4 py-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm border border-white/10 shadow-lg"
-              >
-                <ArrowLeft size={24} />
-                <span className="font-bold hidden sm:inline">Volver</span>
-              </button>
-              <div className="flex gap-2">
-                <a 
-                  href={viewingAttachment} 
-                  download
-                  className="p-3 bg-black/40 hover:bg-black/60 backdrop-blur-sm border border-white/10 rounded-full transition-colors text-white hover:text-primary shadow-lg"
-                  title="Descargar"
-                >
-                  <Upload className="rotate-180" size={24} />
-                </a>
-              </div>
-            </div>
-
             {/* Content */}
-            <div 
-              className="flex-1 overflow-auto p-4 flex items-center justify-center"
-              onClick={() => setViewingAttachment(null)}
-            >
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
               <div onClick={(e) => e.stopPropagation()} className="relative max-w-full max-h-full">
+                <button
+                  onClick={() => setViewingAttachment(null)}
+                  className="absolute top-3 left-3 z-20 flex items-center gap-2 text-white hover:text-primary transition-colors px-4 py-2 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm border border-white/10 shadow-lg"
+                  title="Volver"
+                >
+                  <ArrowLeft size={20} />
+                  <span className="font-bold hidden sm:inline">Volver</span>
+                </button>
+                <a
+                  href={viewingAttachment}
+                  download
+                  className="absolute top-3 right-3 z-20 p-3 bg-black/50 hover:bg-black/70 backdrop-blur-sm border border-white/10 rounded-full transition-colors text-white hover:text-primary shadow-lg"
+                  title="Descargar"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Upload className="rotate-180" size={20} />
+                </a>
                 {viewingAttachment.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                   <img 
                     src={viewingAttachment} 
@@ -810,8 +840,14 @@ const Direccion: React.FC = () => {
                 ) : viewingAttachment.match(/\.pdf$/i) ? (
                   <iframe 
                     src={viewingAttachment} 
-                    className="w-[90vw] h-[85vh] rounded-lg shadow-2xl bg-white"
+                    className="w-[90vw] h-[85vh] rounded-lg shadow-2xl bg-white border-none"
                     title="Visor de PDF"
+                  />
+                ) : viewingAttachment.match(/\.(doc|docx)$/i) ? (
+                  <iframe 
+                    src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(viewingAttachment)}`}
+                    className="w-[90vw] h-[85vh] rounded-lg shadow-2xl bg-white border-none"
+                    title="Visor de Word"
                   />
                 ) : (
                   <div className="text-center space-y-4">
