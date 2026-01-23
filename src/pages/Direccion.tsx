@@ -27,6 +27,8 @@ const Direccion: React.FC = () => {
   const [previousRecipients, setPreviousRecipients] = useState<string[]>([]);
   const [showRecipientSuggestions, setShowRecipientSuggestions] = useState(false);
   const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ show: boolean; x: number; y: number; docId: string | null }>({ show: false, x: 0, y: 0, docId: null });
+  const [editingId, setEditingId] = useState<string | null>(null);
   
   // Form state
   const [newDoc, setNewDoc] = useState({
@@ -50,6 +52,10 @@ const Direccion: React.FC = () => {
   useEffect(() => {
     fetchDocuments();
     fetchPreviousRecipients();
+
+    const handleClickOutside = () => setContextMenu({ ...contextMenu, show: false });
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
   const fetchPreviousRecipients = async () => {
@@ -138,6 +144,7 @@ const Direccion: React.FC = () => {
   };
 
   const resetForm = () => {
+    setEditingId(null);
     setNewDoc({
       titulo: '',
       numero_documento: '',
@@ -220,6 +227,46 @@ const Direccion: React.FC = () => {
     setSelectedFile(null);
   };
 
+  const handleContextMenu = (e: React.MouseEvent, docId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      show: true,
+      x: e.clientX,
+      y: e.clientY,
+      docId
+    });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar esta actividad?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('rsdc_direccion_documentos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchDocuments();
+    } catch (err) {
+      console.error('Error deleting document:', err);
+    }
+  };
+
+  const handleEdit = (doc: Documento) => {
+    setEditingId(doc.id);
+    setNewDoc({
+      titulo: doc.titulo,
+      numero_documento: doc.numero_documento,
+      quien_recibio: doc.quien_recibio,
+      fecha_creacion: doc.fecha_creacion.split('T')[0],
+      estado: doc.estado,
+      archivo_adjunto: doc.archivo_adjunto || ''
+    });
+    setIsModalOpen(true);
+    setContextMenu({ ...contextMenu, show: false });
+  };
+
   const handleAddDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDoc.titulo || !newDoc.numero_documento || !newDoc.quien_recibio) return;
@@ -229,7 +276,7 @@ const Direccion: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user logged in');
 
-      let attachmentUrl = '';
+      let attachmentUrl = newDoc.archivo_adjunto || '';
 
       if (selectedFile) {
         const fileExt = selectedFile.name.split('.').pop();
@@ -249,21 +296,33 @@ const Direccion: React.FC = () => {
         attachmentUrl = publicUrl;
       }
 
-      const { error } = await supabase
-        .from('rsdc_direccion_documentos')
-        .insert([{
-          ...newDoc,
-          user_id: user.id,
-          archivo_adjunto: attachmentUrl
-        }]);
+      if (editingId) {
+        const { error } = await supabase
+          .from('rsdc_direccion_documentos')
+          .update({
+            ...newDoc,
+            archivo_adjunto: attachmentUrl
+          })
+          .eq('id', editingId);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('rsdc_direccion_documentos')
+          .insert([{
+            ...newDoc,
+            user_id: user.id,
+            archivo_adjunto: attachmentUrl
+          }]);
+
+        if (error) throw error;
+      }
       
       handleCloseModal();
       fetchDocuments();
       fetchPreviousRecipients();
     } catch (err) {
-      console.error('Error adding document:', err);
+      console.error('Error saving document:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -378,6 +437,7 @@ const Direccion: React.FC = () => {
                 <motion.div 
                   key={doc.id}
                   whileHover={{ x: 5 }}
+                  onContextMenu={(e) => handleContextMenu(e, doc.id)}
                   className="glass-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group relative"
                 >
                   <div className="flex items-center gap-4 flex-1 w-full">
@@ -482,6 +542,30 @@ const Direccion: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu.show && (
+        <div 
+          className="fixed bg-[#0a0f1a] border border-white/10 rounded-xl shadow-2xl py-2 z-[9999] min-w-[160px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button
+            onClick={() => handleEdit(documents.find(d => d.id === contextMenu.docId)!)}
+            className="w-full text-left px-4 py-2 hover:bg-white/5 text-sm font-medium flex items-center gap-2"
+          >
+            <ClipboardList size={16} /> Editar
+          </button>
+          <button
+            onClick={() => {
+              handleDelete(contextMenu.docId!);
+              setContextMenu({ ...contextMenu, show: false });
+            }}
+            className="w-full text-left px-4 py-2 hover:bg-red-500/10 text-red-400 text-sm font-medium flex items-center gap-2"
+          >
+            <X size={16} /> Eliminar
+          </button>
+        </div>
+      )}
 
       {/* Add Document Modal */}
       <AnimatePresence>
