@@ -845,7 +845,7 @@ const Direccion: React.FC = () => {
                   />
                 ) : viewingAttachment.match(/\.(doc|docx)$/i) ? (
                   <iframe 
-                    src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(viewingAttachment)}`}
+                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewingAttachment)}`}
                     className="w-[90vw] h-[85vh] rounded-lg shadow-2xl bg-white border-none"
                     title="Visor de Word"
                   />
